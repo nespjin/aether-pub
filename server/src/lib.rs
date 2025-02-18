@@ -1,6 +1,6 @@
 use dotenv::dotenv;
-use rocket::{catch, catchers, launch, routes};
 use rocket::serde::json::json;
+use rocket::{catch, catchers, launch, routes};
 use rocket_cors::{Cors, CorsOptions};
 use serde_json::Value;
 
@@ -26,7 +26,14 @@ pub fn rocket() -> _ {
     // dotenv().ok();
     rocket::build()
         .attach(cors_fairing())
-        .mount("/api/packages", routes![routes::packages::list_versions])
+        .mount(
+            "/api/packages",
+            routes![
+                routes::packages::list_versions,
+                routes::packages::versions_new,
+                routes::packages::advisories,
+            ],
+        )
         // .attach(cors_fairing())
         .register("/", catchers![not_found])
 }

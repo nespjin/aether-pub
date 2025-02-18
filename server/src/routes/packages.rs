@@ -29,3 +29,18 @@ pub fn list_versions(package: &str) -> String {
 
     serde_json::to_string(&json).unwrap()
 }
+
+#[get("/versions/new")]
+pub fn versions_new() {
+
+}
+
+#[get("/<package>/advisories")]
+pub fn advisories(package: &str) -> Value {
+    serde_json::json!(
+        {
+            "advisories": [],
+            "advisoriesUpdated": ""
+        }
+    )
+}
