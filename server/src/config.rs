@@ -69,6 +69,8 @@ pub fn from_env() -> Figment {
         .parse::<u16>()
         .expect("PORT environment variable should parse to an integer");
 
+    let log_level = env::var("LOG_LEVEL").unwrap_or_else(|_| "off".to_string());
+
     let mut database_config = HashMap::new();
     let mut databases = HashMap::new();
     let database_url =
@@ -78,5 +80,6 @@ pub fn from_env() -> Figment {
 
     Config::figment()
         .merge(("port", port))
+        .merge(("log_level", log_level))
         .merge(("databases", databases))
 }

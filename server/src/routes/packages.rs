@@ -20,7 +20,7 @@ use std::io::{Cursor, Read};
 
 /// List all versions of a package
 #[get("/<package>")]
-pub fn list_versions(package: &str) -> String {
+pub fn list_versions(package: &str) -> ServerJsonResponder {
     let mut json = serde_json::json!("{}").to_string();
 
     let connection = &mut sqlite_database::establish_connection();
@@ -39,11 +39,7 @@ pub fn list_versions(package: &str) -> String {
             &last_version_entity.version,
         )
         .unwrap();
-        let archive_url = config::get_package_upload_url()
-            + "/"
-            + &package_entity.name
-            + "/"
-            + &last_version_entity.version;
+        let archive_url = format!("{}/{}", "http://127.0.0.1:8000", &package_file_path);
 
         let sha256_file_path = package_service::get_sha256_file_path(
             &package_entity.name.as_str(),
@@ -58,8 +54,8 @@ pub fn list_versions(package: &str) -> String {
             .unwrap();
 
         json = serde_json::to_string(&package_entity.to_json(
-            &last_version_entity.to_json(&package_file_path, &archive_sha256),
-            vec![last_version_entity.to_json(&package_file_path, &archive_sha256)],
+            &last_version_entity.to_json(&archive_url, &archive_sha256),
+            vec![last_version_entity.to_json(&archive_url, &archive_sha256)],
         ))
         .unwrap();
 
@@ -70,7 +66,8 @@ pub fn list_versions(package: &str) -> String {
         println!("No package found");
     }
 
-    serde_json::to_string(&json).unwrap()
+    // serde_json::to_string(&json).unwrap()
+    ServerJsonResponder::new(&json)
 }
 
 #[get("/versions/new")]
