@@ -1,6 +1,7 @@
 use aether_pub_server::service::package_service;
 use std::fs::File;
 use std::io::Read;
+use rocket::fs::TempFile;
 
 #[test]
 fn test_parse_pubspec_from_tar_gz() {
@@ -17,7 +18,7 @@ fn test_save_package_and_sha256_file() {
     let package_version = "2.0.11";
 
     let paths =
-        package_service::save_package_and_sha256_file(package_name, package_version, buf);
+        package_service::save_package_and_sha2567_file();
     println!("{:?}", &paths);
 
     assert!(paths.is_some());

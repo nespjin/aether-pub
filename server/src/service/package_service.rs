@@ -1,9 +1,11 @@
+use crate::config;
+use crate::database::package_entity::PackageEntity;
+use crate::database::package_version_entity::PackageVersionEntity;
+use crate::database::{package_dao, package_version_dao, sqlite_database};
 use sha2::{Digest, Sha256};
-use std::env;
-use std::fs::{create_dir, create_dir_all, File};
-use std::io::{Read, Write};
+use std::fs::{create_dir_all, remove_file, File};
+use std::io::{BufReader, Read, Seek, Write};
 use std::path::Path;
-
 // pub(crate) struct PackageService<'a> {
 //     /// The database connection.
 //     pub(crate) db: &'a mut SqliteConnection,
@@ -78,24 +80,23 @@ pub fn parse_pubspec_from_tar_gz(file: &File) -> Option<serde_json::Value> {
     pubspec
 }
 
-/// Saves the package file and its corresponding SHA256 checksum file.
-///
-/// This function takes the package name, version, and content, generates the package file and its SHA256 checksum file,
-/// writes the package content to the package file, and writes the SHA256 checksum to the checksum file.
-///
-/// # Parameters
-/// - `package_name`: The name of the package, used to generate the file path.
-/// - `package_version`: The version of the package, used to generate the file path.
-/// - `buf`: The byte array of the package content, which will be written to the package file.
-///
-/// # Returns
-/// - If successful, returns a tuple containing the paths of the package file and the SHA256 checksum file.
-/// - If any step fails, returns `None`.
-pub fn save_package_and_sha256_file(
-    package_name: &str,
-    package_version: &str,
-    buf: &[u8],
-) -> Option<(String, String)> {
+pub fn save_package_and_sha256_file(package_tmp_file_path: &String) -> Option<(String, String)> {
+    let mut package_tmp_file = File::open(package_tmp_file_path).unwrap();
+    let pubspec_opt = parse_pubspec_from_tar_gz(&package_tmp_file);
+
+    // Reset file pointer
+    package_tmp_file.seek(std::io::SeekFrom::Start(0)).unwrap();
+
+    if let None = &pubspec_opt {
+        println!("save_package_and_sha256_file: failed to parse pubspec.yaml");
+        return None;
+    }
+
+    let pubspec = pubspec_opt.unwrap();
+
+    let package_name = pubspec["name"].as_str().unwrap();
+    let package_version = pubspec["version"].as_str().unwrap();
+
     let package_file_path_opt = get_package_file_path(package_name, package_version);
     if let None = package_file_path_opt {
         println!("save_package_and_sha256_file: failed to get package file path");
@@ -145,34 +146,96 @@ pub fn save_package_and_sha256_file(
 
     let sha256_file_result = File::create(&sha256_file_path);
     if let Err(_) = sha256_file_result {
+        let _ = remove_file(&package_file_path);
         println!("save_package_and_sha256_file: failed to create sha256 file");
         return None;
     }
 
-    let mut package_file = package_file_result.unwrap();
-    let mut sha256_file = sha256_file_result.unwrap();
-
-    // Calculate the file sha256 hash
     let mut sha256 = Sha256::default();
-    sha256.update(buf);
+    let mut package_tmp_file_reader = BufReader::new(&package_tmp_file);
+
+    let mut buffer = [0; 1024];
+    // while let Ok(n) = package_tmp_file_reader.read(&mut buffer) {
+    //     if n == 0 {
+    //         break;
+    //     }
+    //     sha256.update(&buffer[..n]);
+    // }
+
+    let mut package_file_size = 0;
+    let mut package_file = package_file_result.unwrap();
+
+    loop {
+        if let Ok(bytes_read) = package_tmp_file_reader.read(&mut buffer) {
+            println!("save_package_and_sha256_file: bytes_read: {:?}", bytes_read);
+            if bytes_read == 0 {
+                break;
+            }
+            &sha256.update(&buffer[..bytes_read]);
+            package_file_size += bytes_read;
+
+            if let Err(_) = package_file.write(&buffer[..bytes_read]) {
+                let _ = remove_file(&package_file_path);
+                let _ = remove_file(&sha256_file_path);
+                println!("save_package_and_sha256_file: failed to write package file");
+                return None;
+            }
+        } else {
+            let _ = remove_file(&package_file_path);
+            let _ = remove_file(&sha256_file_path);
+            println!("save_package_and_sha256_file: failed to read tmp package file");
+            return None;
+        }
+    }
+
+    if package_file_size == 0 {
+        let _ = remove_file(&package_file_path);
+        let _ = remove_file(&sha256_file_path);
+        println!("save_package_and_sha256_file: package file size is 0");
+        return None;
+    }
+
+    // sha256.update(buf);
     let hash_code = sha256.finalize();
     let hash_hex = format!("{:x}", hash_code);
 
+    // let mut package_file = package_file_result.unwrap();
+    let mut sha256_file = sha256_file_result.unwrap();
+
+    // Calculate the file sha256 hash
+    // let mut sha256 = Sha256::default();
+    // sha256.update(buf);
+    // let hash_code = sha256.finalize();
+    // let hash_hex = format!("{:x}", hash_code);
+
     println!("save_package_and_sha256_file: file hash: {:?}", &hash_hex);
 
-    if let (Ok(package_file_size), Ok(sha256_file_size)) = (
-        package_file.write(buf),
-        sha256_file.write(&hash_hex.as_bytes()),
-    ) {
+    if let Ok(sha256_file_size) = sha256_file.write(&hash_hex.as_bytes()) {
         println!(
             "save_package_and_sha256_file: package_file_size: {:?}, sha256_file_size: {}",
             package_file_size, sha256_file_size
         );
+        update_database(package_name, package_version, &pubspec);
         Some((package_file_path, sha256_file_path))
     } else {
         println!("save_package_and_sha256_file: failed to write file");
         None
     }
+}
+
+fn update_database(package_name: &str, package_version: &str, pubspec: &serde_json::Value) {
+    let connection = &mut sqlite_database::establish_connection();
+    package_version_dao::upsert(
+        connection,
+        &PackageVersionEntity::new_with_pubspec(&pubspec, package_name),
+    )
+    .unwrap();
+
+    package_dao::upsert(
+        connection,
+        &PackageEntity::new_with_pubspec(&pubspec, package_version),
+    )
+    .unwrap();
 }
 
 pub(crate) fn get_package_file_path(package_name: &str, package_version: &str) -> Option<String> {
@@ -208,7 +271,7 @@ fn get_file_path(
 
 fn get_package_dir_path<'a>(package_name: &'a str, package_version: &'a str) -> Option<String> {
     dotenv::dotenv().ok();
-    let root_dir = env::var("PACKAGE_ROOT_DIR").unwrap_or_else(|_| "packages".to_string());
+    let root_dir = config::get_package_root_dir();
 
     println!("get_package_dir_path: root_dir: {:?}", root_dir);
 

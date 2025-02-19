@@ -1,6 +1,6 @@
 use rocket::serde::Serialize;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct PackageVersionJson {
     pub version: String,
 
@@ -17,7 +17,7 @@ pub struct PackageVersionJson {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PackageVersionsJson {
+pub struct PackageJson {
     pub name: String,
 
     /// Optional field, false if omitted
@@ -27,7 +27,7 @@ pub struct PackageVersionsJson {
     pub replaced_by: Option<String>,
 
     /// Optional field, timestamp of the last time the contents of the advisories API changed for this package
-    pub advisories_updated: Option<i64>,
+    pub advisories_updated: Option<String>,
     
     pub latest: PackageVersionJson,
 
