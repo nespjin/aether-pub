@@ -8,12 +8,20 @@ rocket = { version = "0.5.1", default-features = false, features = ["json"] }
 rocket_cors = { version = "0.6.0-alpha1", default-features = false }
 serde = { version = "1.0.133", features = ["derive"] }
 serde_json = "1.0.75"
-scrypt = { version = "0.8.1", default-features = true }
-chrono = { version = "0.4.19", features = ["serde"] }
-diesel = { version = "1.4.8", features = ["postgres", "chrono"] }
-validator = "0.14.0"
-validator_derive = "0.14.0"
-slug = "0.1.4"
-rand = "0.8.4"
+scrypt = { version = "0.11.0", default-features = true }
+chrono = { version = "0.4.39", features = ["serde"] }
+diesel = { version = "2.2.7", features = ["sqlite", "returning_clauses_for_sqlite_3_35", "chrono", "serde_json"] }
+validator = "0.20.0"
+validator_derive = "0.20.0"
+slug = "0.1.6"
+rand = "0.9.0"
 dotenv = "0.15.0"
-jsonwebtoken = "7.2.0"
+jsonwebtoken = "9.3.1"
+sha2 = "0.10.8"
+tar = "0.4.43"
+flate2 = "1.0.35"
+serde_yaml = "0.9.34+deprecated"
+
+[dependencies.rocket_sync_db_pools]
+version = "0.1.0"
+features = ["diesel_sqlite_pool"]

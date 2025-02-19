@@ -1,0 +1,2 @@
+[default.databases.aether-pub-server-sqlite]
+url = "aether-pub-server-sqlite.db"

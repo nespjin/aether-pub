@@ -1,11 +1,20 @@
 use dotenv::dotenv;
-use rocket::serde::json::json;
 use rocket::{catch, catchers, launch, routes};
+
+extern crate rocket;
+use rocket::serde::json::json;
 use rocket_cors::{Cors, CorsOptions};
 use serde_json::Value;
 
+#[macro_use]
+extern crate diesel;
+
+mod config;
+mod database;
 mod models;
 mod routes;
+mod schema;
+pub mod service;
 
 #[catch(404)]
 fn not_found() -> Value {
@@ -23,8 +32,9 @@ fn cors_fairing() -> Cors {
 
 #[launch]
 pub fn rocket() -> _ {
-    // dotenv().ok();
-    rocket::build()
+    dotenv().ok();
+    // rocket::build()
+    rocket::custom(config::from_env())
         .attach(cors_fairing())
         .mount(
             "/api/packages",
@@ -34,6 +44,7 @@ pub fn rocket() -> _ {
                 routes::packages::advisories,
             ],
         )
+        .attach(database::sqlite_database::ServerSqliteDatabase::fairing())
         // .attach(cors_fairing())
         .register("/", catchers![not_found])
 }

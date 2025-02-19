@@ -1,9 +1,6 @@
 use aether_pub_server;
 use aether_pub_server::rocket;
 
-#[macro_use] extern crate rocket;
-
-
 #[rocket::main]
 async fn main() {
     if let Err(e) = rocket().launch().await {

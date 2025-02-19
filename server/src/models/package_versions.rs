@@ -1,5 +1,4 @@
 use rocket::serde::Serialize;
-use std::iter::Map;
 
 #[derive(Serialize)]
 pub struct PackageVersionJson {
