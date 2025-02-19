@@ -192,6 +192,14 @@ packages:
       url: "https://mirrors.tuna.tsinghua.edu.cn/dart-pub/"
     source: hosted
     version: "0.6.1"
+  upload_package_example:
+    dependency: "direct main"
+    description:
+      name: upload_package_example
+      sha256: "98f4583fc05371084b13bb9b8b2f9e98abe931c17ce37ecc8178c95bf295de6e"
+      url: "http://127.0.0.1:8000"
+    source: hosted
+    version: "0.0.1"
   vector_math:
     dependency: transitive
     description:
@@ -210,3 +218,4 @@ packages:
     version: "13.0.0"
 sdks:
   dart: ">=3.3.0 <4.0.0"
+  flutter: ">=1.17.0"

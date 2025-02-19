@@ -39,7 +39,6 @@ dependencies:
     version: ^0.0.1
     hosted:
       url: http://127.0.0.1:8000
-      name: aether-pub
 
 dev_dependencies:
   flutter_test:
