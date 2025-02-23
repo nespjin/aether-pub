@@ -2,6 +2,8 @@ use crate::config;
 use crate::database::package_entity::PackageEntity;
 use crate::database::package_version_entity::PackageVersionEntity;
 use crate::database::{package_dao, package_version_dao, sqlite_database};
+use crate::models::package::Package;
+use crate::models::package_version::PackageVersion;
 use sha2::{Digest, Sha256};
 use std::fs::{create_dir_all, remove_file, File};
 use std::io::{BufReader, Read, Seek, Write};
@@ -18,21 +20,92 @@ use std::path::Path;
 // }
 //
 
-pub fn get_package_details() {
+pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Package> {
+    let connection = &mut sqlite_database::establish_connection();
+    let package_entity = match package_dao::find_by_name(connection, package_name) {
+        Ok(entity) => entity,
+        Err(e) => {
+            println!("get_package: failed to find package by name: {:?}", e);
+            return None;
+        }
+    };
+    let latest_version: &str = &package_entity.latest_version;
 
+    let last_version_entity = match package_version_dao::find_by_version(connection, latest_version)
+    {
+        Ok(entity) => entity,
+        Err(e) => {
+            println!(
+                "get_package: failed to find package version by version: {:?}",
+                e
+            );
+            return None;
+        }
+    };
+
+    let last_version = match get_package_version_from_entity(&last_version_entity) {
+        Some(version) => version,
+        None => {
+            println!("get_package: failed to get package version from entity");
+            return None;
+        }
+    };
+
+    let version: Option<Vec<PackageVersion>> = if is_query_versions {
+        let version_entities =
+            match package_version_dao::find_all_by_package_name(connection, package_name) {
+                Ok(entities) => entities,
+                Err(e) => {
+                    println!(
+                        "get_package: failed to find all package versions by package name: {:?}",
+                        e
+                    );
+                    return None;
+                }
+            };
+
+        match version_entities
+            .iter()
+            .map(|entity| get_package_version_from_entity(entity))
+            .collect::<Option<Vec<PackageVersion>>>()
+        {
+            Some(versions) => Some(versions),
+            None => {
+                println!("get_package: failed to get package versions from entities");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    Some(Package {
+        name: package_name,
+        is_discontinued: false,
+        replaced_by: None,
+        advisories_updated: None,
+        latest: last_version,
+        versions: version.unwrap_or(Vec::new()),
+    })
 }
+
+pub fn query_packages(keyword: &str, page: u32, is_query_all_versions: bool) {
+    let is_query_all_packages = keyword.is_empty();
+    let is_query_all_pages = page == 0;
+
+    let connection = &mut sqlite_database::establish_connection();
+}
+pub fn get_package_details() {}
 
 pub fn get_package_readme() {}
 
 pub fn get_package_changelog() {}
 
-pub fn get_package_example(){}
+pub fn get_package_example() {}
 
-pub fn get_package_installing(){}
+pub fn get_package_installing() {}
 
 pub fn get_package_versions() {}
-
-pub fn query_packages(keyword: &str, page: u32) {}
 
 pub fn save_new_package_version_with_tar_file(
     package_tmp_file_path: &String,
@@ -285,8 +358,71 @@ fn get_file_path(
     file_path.to_str().map(|path| path.to_string())
 }
 
+fn get_package_version_from_entity(entity: &PackageVersionEntity) -> Option<PackageVersion> {
+    let package_name: &str = &entity.package_name;
+    let package_version: &str = &entity.version;
+
+    let last_version_archive_download_url =
+        match get_package_version_archive_download_url(package_name, package_version) {
+            Some(path) => path,
+            None => {
+                println!("get_package: failed to get package file path");
+                return None;
+            }
+        };
+
+    let last_version_sha256 =
+        match get_package_version_archive_sha256(package_name, package_version) {
+            Some(hash) => hash,
+            None => {
+                println!("get_package: failed to get package file path");
+                return None;
+            }
+        };
+
+    Some(entity.as_external_model(&last_version_archive_download_url, &last_version_sha256))
+}
+
+fn get_package_version_archive_sha256(package_name: &str, package_version: &str) -> Option<String> {
+    let sha256_file_path = match get_sha256_file_path(package_name, package_version) {
+        Some(path) => path,
+        None => {
+            println!("get_package: failed to get sha256 file path");
+            return None;
+        }
+    };
+
+    match File::open(&sha256_file_path) {
+        Ok(mut file) => {
+            let mut content = String::new();
+            if let Err(e) = file.read_to_string(&mut content) {
+                println!("get_package: failed to read sha256 file: {:?}", e);
+                return None;
+            }
+            Some(content)
+        }
+        Err(e) => {
+            println!("get_package: failed to open sha256 file: {:?}", e);
+            None
+        }
+    }
+}
+
+fn get_package_version_archive_download_url(package_name: &str, version: &str) -> Option<String> {
+    match get_package_file_path(package_name, version) {
+        Some(path) => Some(format!(
+            "{}/{}",
+            config::get_package_archive_download_host(),
+            &path
+        )),
+        None => {
+            println!("get_package_archive_download_url: failed to get package file path");
+            None
+        }
+    }
+}
+
 fn get_package_dir_path<'a>(package_name: &'a str, package_version: &'a str) -> Option<String> {
-    dotenv::dotenv().ok();
     let root_dir = config::get_package_root_dir();
 
     println!("get_package_dir_path: root_dir: {:?}", root_dir);

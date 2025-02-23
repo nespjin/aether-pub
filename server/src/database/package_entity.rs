@@ -31,11 +31,11 @@ impl PackageEntity {
         }
     }
 
-    pub fn as_external_model<'a>(
-        &'a self,
-        latest: &'a PackageVersion,
-        versions: &'a Vec<PackageVersion>,
-    ) -> Package<'a> {
+    pub fn as_external_model(
+        &self,
+        latest: PackageVersion,
+        versions: Vec<PackageVersion>,
+    ) -> Package {
         Package {
             name: &self.name,
             is_discontinued: self.is_discontinued,

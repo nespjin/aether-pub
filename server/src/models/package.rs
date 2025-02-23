@@ -9,7 +9,7 @@ pub struct Package<'a> {
 
     pub advisories_updated: Option<String>,
 
-    pub latest: &'a PackageVersion,
+    pub latest: PackageVersion,
 
-    pub versions: &'a Vec<PackageVersion>,
+    pub versions:  Vec<PackageVersion>,
 }

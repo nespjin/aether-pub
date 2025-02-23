@@ -15,7 +15,11 @@ pub const TOKEN_PREFIX: &'static str = "Token ";
 pub fn check() {
     // Check for required environment variables
     dotenv::dotenv().ok();
-    let keys = ["PACKAGE_UPLOAD_URL", "FINALIZE_UPLOAD_URL"];
+    let keys = [
+        "PACKAGE_UPLOAD_URL",
+        "FINALIZE_UPLOAD_URL",
+        "PACKAGE_ARCHIVE_DOWNLOAD_HOST",
+    ];
     for key in keys.iter() {
         if env::var(key).is_err() {
             panic!("{} environment variable not found", key);
@@ -36,6 +40,11 @@ pub fn get_package_upload_url() -> String {
 pub fn get_finalize_upload_url() -> String {
     dotenv::dotenv().ok();
     env::var("FINALIZE_UPLOAD_URL").unwrap()
+}
+
+pub fn get_package_archive_download_host() -> String {
+    dotenv::dotenv().ok();
+    env::var("PACKAGE_ARCHIVE_DOWNLOAD_HOST").unwrap()
 }
 
 pub struct AppState {
