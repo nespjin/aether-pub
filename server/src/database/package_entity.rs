@@ -13,7 +13,9 @@ pub(crate) struct PackageEntity {
     pub replaced_by: Option<String>,
     pub advisories_updated: Option<String>,
     pub latest_version: String,
+    // The seconds since epoch 1970-01-01T00:00:00Z UTC
     pub created_time: i32,
+    // The seconds since epoch 1970-01-01T00:00:00Z UTC
     pub updated_time: i32,
 }
 
