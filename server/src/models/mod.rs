@@ -1,4 +1,5 @@
-pub(crate) mod package_versions;
-pub(crate) mod headers;
-pub(crate) mod error;
-pub mod http;
+pub mod error;
+pub mod headers;
+pub mod package;
+pub mod package_version;
+pub mod pubspec;

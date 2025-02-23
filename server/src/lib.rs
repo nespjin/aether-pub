@@ -1,18 +1,16 @@
+#[macro_use]
+extern crate diesel;
+extern crate rocket;
 use dotenv::dotenv;
+use log::LevelFilter;
 use rocket::fs::{relative, FileServer};
-use rocket::http::uri::fmt::Kind::Path;
 use rocket::{catch, catchers, launch, routes};
 use std::path;
-use log::LevelFilter;
 
-extern crate rocket;
+use crate::fairing::request_logger_fairing::RequestLogger;
 use rocket::serde::json::json;
 use rocket_cors::{Cors, CorsOptions};
 use serde_json::Value;
-use crate::fairing::request_logger_fairing::RequestLogger;
-
-#[macro_use]
-extern crate diesel;
 
 pub mod config;
 mod database;

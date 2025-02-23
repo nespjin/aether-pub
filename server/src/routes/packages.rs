@@ -1,22 +1,15 @@
 use crate::config;
-use crate::database::package_entity::PackageEntity;
 use crate::database::sqlite_database;
-use crate::database::{package_dao, package_entity, package_version_dao};
-use crate::models::http::{ServerJsonResponder, ServerNoContentResponder};
-use crate::models::package_versions::{PackageJson, PackageVersionJson};
+use crate::database::{package_dao, package_version_dao};
+use crate::routes::http::{ServerJsonResponder, ServerNoContentResponder};
+use crate::routes::package_response_data::PackageResponseData;
 use crate::service::package_service;
-use diesel::SqliteConnection;
-use rocket::form::validate::{len, Len};
-use rocket::form::{Form, Shareable};
+use rocket::form::Form;
 use rocket::fs::TempFile;
-use rocket::http::{ContentType, Header, Status};
-use rocket::response::Responder;
 use rocket::serde::json::Value;
-use rocket::tokio::fs::remove_file;
-use rocket::{get, post, FromForm, Response, State};
-use serde_json::json;
+use rocket::{get, post, FromForm};
 use std::fs::File;
-use std::io::{Cursor, Read};
+use std::io::Read;
 
 /// List all versions of a package
 #[get("/<package>")]
@@ -53,15 +46,17 @@ pub fn list_versions(package: &str) -> ServerJsonResponder {
             .read_to_string(archive_sha256)
             .unwrap();
 
-        json = serde_json::to_string(&package_entity.to_json(
-            &last_version_entity.to_json(&archive_url, &archive_sha256),
-            vec![last_version_entity.to_json(&archive_url, &archive_sha256)],
+        json = serde_json::to_string(&PackageResponseData::from_model(
+            &package_entity.as_external_model(
+                &last_version_entity.as_external_model(&archive_url, &archive_sha256),
+                &vec![last_version_entity.as_external_model(&archive_url, &archive_sha256)],
+            ),
         ))
         .unwrap();
 
         let package_version_entities =
             package_version_dao::find_all_by_package_name(connection, package);
-        if let Ok(entities) = package_version_entities {}
+        if let Ok(_entities) = package_version_entities {}
     } else {
         println!("No package found");
     }
@@ -92,7 +87,7 @@ pub fn advisories(package: &str) -> Value {
 }
 
 #[derive(FromForm)]
-struct Upload<'r> {
+pub(crate) struct Upload<'r> {
     file: TempFile<'r>,
 }
 
@@ -100,7 +95,7 @@ struct Upload<'r> {
 pub async fn upload(mut data: Form<Upload<'_>>) -> ServerNoContentResponder {
     let path = data.file.path().unwrap().to_str().unwrap().to_string();
 
-    let url = if let Some(_) = package_service::save_package_and_sha256_file(&path) {
+    let url = if let Some(_) = package_service::save_new_package_version_with_tar_file(&path) {
         config::get_finalize_upload_url()
     } else {
         "".to_string()

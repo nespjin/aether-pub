@@ -1,7 +1,5 @@
-use crate::schema::package::star;
 use rocket::http::{Header, Status};
 use rocket::response::Responder;
-use rocket::yansi::Paint;
 
 pub struct ServerHeader {
     pub content_type: String,

@@ -1,8 +1,7 @@
-use log::{info, LevelFilter};
+use log::info;
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Request, Response};
 use std::time::Instant;
-use rocket::tokio::io::AsyncReadExt;
 
 pub struct RequestLogger;
 
@@ -22,7 +21,12 @@ impl Fairing for RequestLogger {
     }
 
     async fn on_response<'r>(&self, request: &'r Request<'_>, response: &mut Response<'r>) {
-        info!("Response: {} {} -> {}", request.method(), request.uri(), response.status());
+        info!(
+            "Response: {} {} -> {}",
+            request.method(),
+            request.uri(),
+            response.status()
+        );
         info!("Response headers: {:#?}", response.headers());
         info!("Response time: {}", Instant::now().elapsed().as_secs());
         // if response.status().code == 200 {
@@ -32,4 +36,3 @@ impl Fairing for RequestLogger {
         // }
     }
 }
-
