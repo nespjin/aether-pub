@@ -1,7 +1,6 @@
 use crate::database::package_entity::PackageEntity;
 use crate::schema::package;
 use crate::schema::package::dsl::*;
-use diesel::associations::HasTable;
 use diesel::prelude::*;
 use diesel::{QueryDsl, QueryResult, RunQueryDsl, SelectableHelper};
 use rocket_sync_db_pools::diesel::SqliteConnection;

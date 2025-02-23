@@ -1,4 +1,6 @@
-use crate::models::package_versions::{PackageJson, PackageVersionJson};
+use crate::models::package::Package;
+use crate::models::package_version::PackageVersion;
+use chrono::Utc;
 use diesel::prelude::*;
 
 #[derive(Insertable, Queryable, Selectable, AsChangeset, Debug)]
@@ -24,23 +26,35 @@ impl PackageEntity {
             replaced_by: None,
             advisories_updated: None,
             latest_version: latest_version.to_string(),
-            created_time: 0,
-            updated_time: 0,
+            created_time: Utc::now().timestamp() as i32,
+            updated_time: Utc::now().timestamp() as i32,
         }
     }
 
-    pub fn to_json(
-        &self,
-        latest_version: &PackageVersionJson,
-        versions: Vec<PackageVersionJson>,
-    ) -> PackageJson {
-        PackageJson {
-            name: self.name.clone(),
+    pub fn as_external_model<'a>(
+        &'a self,
+        latest: &'a PackageVersion,
+        versions: &'a Vec<PackageVersion>,
+    ) -> Package<'a> {
+        Package {
+            name: &self.name,
             is_discontinued: self.is_discontinued,
             replaced_by: self.replaced_by.clone(),
             advisories_updated: self.advisories_updated.clone(),
-            latest: latest_version.clone(),
-            versions: versions,
+            latest,
+            versions,
+        }
+    }
+
+    pub fn copy(origin: &PackageEntity) -> Self {
+        Self {
+            name: origin.name.clone(),
+            is_discontinued: origin.is_discontinued,
+            replaced_by: origin.replaced_by.clone(),
+            advisories_updated: origin.advisories_updated.clone(),
+            latest_version: origin.latest_version.clone(),
+            created_time: origin.created_time,
+            updated_time: origin.updated_time,
         }
     }
 }

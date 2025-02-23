@@ -12,12 +12,10 @@ CREATE TABLE package
 
 CREATE TABLE package_version
 (
-    version        TEXT PRIMARY KEY NOT NULL,
-    retracted      BOOLEAN          NOT NULL,
-    archive_url    TEXT             NOT NULL,
-    archive_sha256 TEXT             NOT NULL,
-    pubspec_json   TEXT             NOT NULL,
-    package_name   TEXT             NOT NULL,
-    created_time   INTEGER          NOT NULL,
-    updated_time   INTEGER          NOT NULL
+    version      TEXT PRIMARY KEY NOT NULL,
+    retracted    BOOLEAN          NOT NULL,
+    pubspec_json TEXT             NOT NULL,
+    package_name TEXT             NOT NULL,
+    created_time INTEGER          NOT NULL,
+    updated_time INTEGER          NOT NULL
 );

@@ -6,6 +6,13 @@ use std::env;
 #[database("aether-pub-server-sqlite")]
 pub(crate) struct ServerSqliteDatabase(SqliteConnection);
 
+// static DATABASE_CONNECTION: OnceLock<SqliteConnection> = OnceLock::new();
+//
+// pub(crate) fn get_connection() -> &'static SqliteConnection {
+//     DATABASE_CONNECTION.get_or_init(|| establish_connection());
+//     DATABASE_CONNECTION.get().unwrap()
+// }
+
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
 

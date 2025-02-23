@@ -14,8 +14,6 @@ table! {
     package_version(version) {
         version -> Text,
         retracted -> Bool,
-        archive_url -> Text,
-        archive_sha256 -> Text,
         pubspec_json -> Text,
         package_name -> Text,
         created_time -> Integer,
