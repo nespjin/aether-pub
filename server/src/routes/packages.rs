@@ -1,16 +1,16 @@
 use crate::config;
 use crate::routes::http::{ServerJsonResponder, ServerNoContentResponder};
 use crate::routes::package_response_data::PackageResponseData;
+use crate::routes::package_version_response_data::PackageVersionResponseData;
 use crate::service::package_service;
 use rocket::form::Form;
 use rocket::fs::TempFile;
 use rocket::serde::json::Value;
 use rocket::{get, post, FromForm};
-use crate::routes::package_version_response_data::PackageVersionResponseData;
 
 /// List all versions of a package
 #[get("/<package>")]
-pub fn package_info(package: &str) -> ServerJsonResponder {
+pub async fn package_info(package: &str) -> ServerJsonResponder {
     match package_service::query_package(package, true) {
         Some(package) => {
             let data = PackageResponseData::from_model(&package);
@@ -21,7 +21,7 @@ pub fn package_info(package: &str) -> ServerJsonResponder {
 }
 
 #[get("/<package>/readme")]
-pub fn package_readme(package: &str) -> ServerJsonResponder {
+pub async fn package_readme(package: &str) -> ServerJsonResponder {
     match package_service::get_package_readme(package) {
         Some(readme) => ServerJsonResponder::new(&readme),
         None => ServerJsonResponder::new(""),
@@ -29,7 +29,7 @@ pub fn package_readme(package: &str) -> ServerJsonResponder {
 }
 
 #[get("/<package>/changelog")]
-pub fn package_changelog(package: &str) -> ServerJsonResponder {
+pub async fn package_changelog(package: &str) -> ServerJsonResponder {
     match package_service::get_package_changelog(package) {
         Some(changelog) => ServerJsonResponder::new(&changelog),
         None => ServerJsonResponder::new(""),
@@ -37,7 +37,7 @@ pub fn package_changelog(package: &str) -> ServerJsonResponder {
 }
 
 #[get("/<package>/example")]
-pub fn package_example(package: &str) -> ServerJsonResponder {
+pub async fn package_example(package: &str) -> ServerJsonResponder {
     match package_service::get_package_example(package) {
         Some(example) => ServerJsonResponder::new(&example),
         None => ServerJsonResponder::new(""),
@@ -45,7 +45,7 @@ pub fn package_example(package: &str) -> ServerJsonResponder {
 }
 
 #[get("/<package>/versions")]
-pub fn package_versions(package: &str) -> ServerJsonResponder {
+pub async fn package_versions(package: &str) -> ServerJsonResponder {
     let versions = package_service::query_package_versions(package);
     let data = versions
         .iter()
@@ -56,7 +56,7 @@ pub fn package_versions(package: &str) -> ServerJsonResponder {
 }
 
 #[get("/packages-all?<keyword>&<page_size>&<page>&<is_query_all_versions>")]
-pub fn list_packages(
+pub async fn list_packages(
     keyword: Option<&str>,
     page_size: Option<u32>,
     page: Option<u32>,
@@ -96,7 +96,7 @@ pub fn list_packages(
 }
 
 #[get("/versions/new")]
-pub fn versions_new() -> ServerJsonResponder {
+pub async fn versions_new() -> ServerJsonResponder {
     let body = serde_json::to_string(&serde_json::json!({
         "url": &config::get_package_upload_url(),
         "fields": {}
@@ -107,7 +107,7 @@ pub fn versions_new() -> ServerJsonResponder {
 }
 
 #[get("/<package>/advisories")]
-pub fn advisories(package: &str) -> Value {
+pub async fn advisories(package: &str) -> Value {
     serde_json::json!(
         {
             "advisories": [],
@@ -135,7 +135,7 @@ pub async fn upload(mut data: Form<Upload<'_>>) -> ServerNoContentResponder {
 }
 
 #[get("/finalize-upload")]
-pub fn finalize_upload() -> ServerJsonResponder {
+pub async fn finalize_upload() -> ServerJsonResponder {
     let body = serde_json::to_string(&serde_json::json!({
         "success": {
             "message": "Upload success"
