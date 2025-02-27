@@ -29,6 +29,7 @@ dependencies = [
  "jsonwebtoken",
  "log",
  "rand 0.9.0",
+ "regex",
  "rocket",
  "rocket_cors",
  "rocket_sync_db_pools",
@@ -424,12 +425,19 @@ version = "2.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04001f23ba8843dc315804fa324000376084dfb1c30794ff68dd279e6e5696d5"
 dependencies = [
+ "bitflags",
+ "byteorder",
  "chrono",
  "diesel_derives",
+ "itoa",
  "libsqlite3-sys",
+ "mysqlclient-sys",
+ "percent-encoding",
+ "pq-sys",
  "r2d2",
  "serde_json",
  "time",
+ "url",
 ]
 
 [[package]]
@@ -1218,6 +1226,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "mysqlclient-sys"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bbb9b017b98c4cde5802998113e182eecc1ebce8d47e9ea1697b9a623d53870"
+dependencies = [
+ "pkg-config",
+ "vcpkg",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1406,6 +1424,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77957b295656769bb8ad2b6a6b09d897d94f05c41b069aede1fcdaa675eaea04"
 dependencies = [
  "zerocopy 0.7.35",
+]
+
+[[package]]
+name = "pq-sys"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30b51d65ebe1cb1f40641b15abae017fed35ccdda46e3dab1ff8768f625a3222"
+dependencies = [
+ "libc",
+ "vcpkg",
 ]
 
 [[package]]

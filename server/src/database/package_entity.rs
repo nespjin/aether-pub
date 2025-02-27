@@ -3,7 +3,7 @@ use crate::models::package_version::PackageVersion;
 use chrono::Utc;
 use diesel::prelude::*;
 
-#[derive(Insertable, Queryable, Selectable, AsChangeset, Debug)]
+#[derive(Insertable, Queryable, Selectable, AsChangeset, Debug, Clone)]
 #[diesel(table_name = crate::schema::package)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub(crate) struct PackageEntity {
@@ -39,10 +39,25 @@ impl PackageEntity {
         versions: Vec<PackageVersion>,
     ) -> Package {
         Package {
-            name: &self.name,
+            name: self.name.clone(),
             is_discontinued: self.is_discontinued,
             replaced_by: self.replaced_by.clone(),
             advisories_updated: self.advisories_updated.clone(),
+            latest,
+            versions,
+        }
+    }
+
+    pub fn to_external_model(
+        entity: PackageEntity,
+        latest: PackageVersion,
+        versions: Vec<PackageVersion>,
+    ) -> Package {
+        Package {
+            name: entity.name.clone(),
+            is_discontinued: entity.is_discontinued,
+            replaced_by: entity.replaced_by.clone(),
+            advisories_updated: entity.advisories_updated.clone(),
             latest,
             versions,
         }

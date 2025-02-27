@@ -44,16 +44,28 @@ pub fn rocket() -> _ {
         std::fs::create_dir_all(&package_root_dir).expect("failed to create package root dir");
     }
 
-    env_logger::Builder::from_default_env()
-        .filter_level(LevelFilter::Info)
-        .init();
+    if cfg!(debug_assertions) {
+        env_logger::Builder::from_default_env()
+            .filter_level(LevelFilter::Info)
+            .init();
+    } else {
+        env_logger::Builder::from_default_env()
+            .filter_level(LevelFilter::Error)
+            .init();
+    }
 
-    rocket::custom(config::from_env())
+    let app = rocket::custom(config::from_env())
+        // let app = rocket::build()
         .attach(cors_fairing())
         .mount(
             "/api/packages",
             routes![
-                routes::packages::list_versions,
+                routes::packages::package_info,
+                routes::packages::list_packages,
+                routes::packages::package_readme,
+                routes::packages::package_changelog,
+                routes::packages::package_example,
+                routes::packages::package_versions,
                 routes::packages::versions_new,
                 routes::packages::advisories,
                 routes::packages::upload,
@@ -67,7 +79,12 @@ pub fn rocket() -> _ {
         .mount("/static", FileServer::from(relative!("static")))
         .attach(database::sqlite_database::ServerSqliteDatabase::fairing())
         .attach(fairing::cache_fairing::StaticCacheFairing)
-        .attach(RequestLogger)
-        // .attach(cors_fairing())
-        .register("/", catchers![not_found])
+        .register("/", catchers![not_found]);
+    // .attach(cors_fairing())
+
+    if cfg!(debug_assertions) {
+        app.attach(RequestLogger)
+    } else {
+        app
+    }
 }

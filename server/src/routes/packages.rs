@@ -1,6 +1,4 @@
 use crate::config;
-use crate::database::sqlite_database;
-use crate::database::{package_dao, package_version_dao};
 use crate::routes::http::{ServerJsonResponder, ServerNoContentResponder};
 use crate::routes::package_response_data::PackageResponseData;
 use crate::service::package_service;
@@ -8,18 +6,92 @@ use rocket::form::Form;
 use rocket::fs::TempFile;
 use rocket::serde::json::Value;
 use rocket::{get, post, FromForm};
-use std::fs::File;
-use std::io::Read;
+use crate::routes::package_version_response_data::PackageVersionResponseData;
 
 /// List all versions of a package
 #[get("/<package>")]
-pub fn list_versions(package: &str) -> ServerJsonResponder {
+pub fn package_info(package: &str) -> ServerJsonResponder {
     match package_service::query_package(package, true) {
         Some(package) => {
             let data = PackageResponseData::from_model(&package);
             ServerJsonResponder::new(&serde_json::to_string(&data).unwrap())
         }
         None => ServerJsonResponder::new("{}"),
+    }
+}
+
+#[get("/<package>/readme")]
+pub fn package_readme(package: &str) -> ServerJsonResponder {
+    match package_service::get_package_readme(package) {
+        Some(readme) => ServerJsonResponder::new(&readme),
+        None => ServerJsonResponder::new(""),
+    }
+}
+
+#[get("/<package>/changelog")]
+pub fn package_changelog(package: &str) -> ServerJsonResponder {
+    match package_service::get_package_changelog(package) {
+        Some(changelog) => ServerJsonResponder::new(&changelog),
+        None => ServerJsonResponder::new(""),
+    }
+}
+
+#[get("/<package>/example")]
+pub fn package_example(package: &str) -> ServerJsonResponder {
+    match package_service::get_package_example(package) {
+        Some(example) => ServerJsonResponder::new(&example),
+        None => ServerJsonResponder::new(""),
+    }
+}
+
+#[get("/<package>/versions")]
+pub fn package_versions(package: &str) -> ServerJsonResponder {
+    let versions = package_service::query_package_versions(package);
+    let data = versions
+        .iter()
+        .map(PackageVersionResponseData::from_model)
+        .collect::<Vec<PackageVersionResponseData>>();
+
+    ServerJsonResponder::new(&serde_json::to_string(&data).unwrap())
+}
+
+#[get("/packages-all?<keyword>&<page_size>&<page>&<is_query_all_versions>")]
+pub fn list_packages(
+    keyword: Option<&str>,
+    page_size: Option<u32>,
+    page: Option<u32>,
+    is_query_all_versions: Option<bool>,
+) -> ServerJsonResponder {
+    let keyword = if let Some(keyword) = keyword {
+        keyword
+    } else {
+        ""
+    };
+
+    let page_size = if let Some(page_size) = page_size {
+        page_size
+    } else {
+        0
+    };
+
+    let page = if let Some(page) = page { page } else { 0 };
+
+    let is_query_all_versions = if let Some(is_query_all_versions) = is_query_all_versions {
+        is_query_all_versions
+    } else {
+        false
+    };
+
+    match package_service::query_packages(keyword, page_size, page, is_query_all_versions) {
+        Some(packages) => {
+            let data = packages
+                .iter()
+                .map(PackageResponseData::from_model)
+                .collect::<Vec<PackageResponseData>>();
+
+            ServerJsonResponder::new(&serde_json::to_string(&data).unwrap())
+        }
+        None => ServerJsonResponder::new("[]"),
     }
 }
 

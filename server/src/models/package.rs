@@ -1,7 +1,8 @@
 use crate::models::package_version::PackageVersion;
 
-pub struct Package<'a> {
-    pub name: &'a str,
+#[derive(Debug, Clone)]
+pub struct Package {
+    pub name: String,
 
     pub is_discontinued: bool,
 
@@ -11,5 +12,5 @@ pub struct Package<'a> {
 
     pub latest: PackageVersion,
 
-    pub versions:  Vec<PackageVersion>,
+    pub versions: Vec<PackageVersion>,
 }

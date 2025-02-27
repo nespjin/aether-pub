@@ -1,10 +1,13 @@
 use crate::config;
 use crate::database::package_entity::PackageEntity;
 use crate::database::package_version_entity::PackageVersionEntity;
-use crate::database::{package_dao, package_version_dao, sqlite_database};
+use crate::database::{package_dao, package_version_dao, server_database};
 use crate::models::package::Package;
 use crate::models::package_version::PackageVersion;
+use diesel::Connection;
+use regex::Regex;
 use sha2::{Digest, Sha256};
+use std::borrow::Cow;
 use std::fs::{create_dir_all, remove_file, File};
 use std::io::{BufReader, Read, Seek, Write};
 use std::path::Path;
@@ -21,7 +24,7 @@ use std::path::Path;
 //
 
 pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Package> {
-    let connection = &mut sqlite_database::establish_connection();
+    let connection = &mut server_database::establish_connection();
     let package_entity = match package_dao::find_by_name(connection, package_name) {
         Ok(entity) => entity,
         Err(e) => {
@@ -80,7 +83,7 @@ pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Pack
     };
 
     Some(Package {
-        name: package_name,
+        name: package_name.to_string(),
         is_discontinued: false,
         replaced_by: None,
         advisories_updated: None,
@@ -89,23 +92,152 @@ pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Pack
     })
 }
 
-pub fn query_packages(keyword: &str, page: u32, is_query_all_versions: bool) {
-    let is_query_all_packages = keyword.is_empty();
-    let is_query_all_pages = page == 0;
+pub fn query_packages(
+    keyword: &str,
+    page_size: u32,
+    page: u32,
+    is_query_all_versions: bool,
+) -> Option<Vec<Package>> {
+    let connection = &mut server_database::establish_connection();
+    connection
+        .transaction(|connection| {
+            let package_entities =
+                match package_dao::query_packages(connection, keyword, page_size, page) {
+                    Ok(entities) => entities,
+                    Err(e) => {
+                        println!("query_packages: failed to query packages: {:?}", e);
+                        return Err(e);
+                    }
+                };
 
-    let connection = &mut sqlite_database::establish_connection();
+            let mut packages: Vec<Package> = Vec::new();
+
+            for entity in package_entities {
+                let package_name: &str = &entity.name;
+
+                if is_query_all_versions {
+                    let result =
+                        package_version_dao::find_all_by_package_name(connection, package_name);
+                    let package_version_entities = result.unwrap_or_else(|e| {
+                        println!(
+                            "get_package: failed to find all package versions by package name: {:?}",
+                            e
+                        );
+                        vec![]
+                    });
+                    let versions = package_version_entities
+                        .iter()
+                        .map(|entity| get_package_version_from_entity(entity))
+                        .collect::<Option<Vec<PackageVersion>>>()
+                        .unwrap_or_else(|| {
+                            println!("get_package: failed to get package versions from entities");
+                            vec![]
+                        });
+
+                    let last_version = match versions
+                        .iter()
+                        .find(|version| version.version == entity.latest_version)
+                    {
+                        Some(version) => version,
+                        None => {
+                            println!("get_package: failed to find last version");
+                            continue;
+                        }
+                    };
+
+                    let package = entity.as_external_model(last_version.clone(), versions);
+                    packages.push(package);
+                } else {
+                    let last_version_opt = match package_version_dao::find_by_version(
+                        connection,
+                        &entity.latest_version,
+                    ) {
+                        Ok(entity) => get_package_version_from_entity(&entity),
+                        Err(e) => {
+                            println!(
+                                "get_package: failed to find package version by version: {:?}",
+                                e
+                            );
+                            continue;
+                        }
+                    };
+
+                    let last_version = match last_version_opt {
+                        Some(version) => version,
+                        None => {
+                            println!("get_package: failed to get package version from entity");
+                            continue;
+                        }
+                    };
+
+                    let package = entity.as_external_model(last_version, vec![]);
+                    packages.push(package);
+                }
+            }
+
+            Ok(packages)
+        })
+        .map_or(None, |packages| Some(packages))
 }
 pub fn get_package_details() {}
 
-pub fn get_package_readme() {}
+pub fn get_package_readme(package_name: &str) -> Option<String> {
+    let Some(package_file_path) = get_package_file_path_from_package_name(package_name) else {
+        println!("get_package_readme: failed to get package file path from package name");
+        return None;
+    };
 
-pub fn get_package_changelog() {}
+    parse_readme_from_tar_gz(&package_file_path)
+}
 
-pub fn get_package_example() {}
+pub fn get_package_changelog(package_name: &str) -> Option<String> {
+    let Some(package_file_path) = get_package_file_path_from_package_name(package_name) else {
+        println!("get_package_changelog: failed to get package file path from package name");
+        return None;
+    };
+
+    parse_changelog_from_tar_gz(&package_file_path)
+}
+
+pub fn get_package_example(package_name: &str) -> Option<String> {
+    let Some(package_file_path) = get_package_file_path_from_package_name(package_name) else {
+        println!("get_package_example: failed to get package file path from package name");
+        return None;
+    };
+
+    parse_example_from_tar_gz(&package_file_path)
+}
 
 pub fn get_package_installing() {}
 
-pub fn get_package_versions() {}
+pub fn query_package_versions(package_name: &str) -> Vec<PackageVersion> {
+    let connection = &mut server_database::establish_connection();
+    connection
+        .transaction(|connection| {
+            let package_versions =
+                match package_version_dao::find_all_by_package_name(connection, package_name) {
+                    Ok(entities) => entities,
+                    Err(e) => {
+                        println!(
+                            "get_package_versions: failed to query package versions: {:?}",
+                            e
+                        );
+                        return Err(e);
+                    }
+                };
+
+            let versions = package_versions
+                .iter()
+                .map(|entity| get_package_version_from_entity(entity))
+                .collect::<Option<Vec<PackageVersion>>>()
+                .unwrap_or_else(|| {
+                    println!("get_package_versions: failed to get package versions from entities");
+                    vec![]
+                });
+            Ok(versions)
+        })
+        .map_or(vec![], |versions| versions)
+}
 
 pub fn save_new_package_version_with_tar_file(
     package_tmp_file_path: &String,
@@ -240,6 +372,7 @@ pub fn save_new_package_version_with_tar_file(
         None
     }
 }
+
 pub fn parse_pubspec_from_tar_gz(file: &File) -> Option<serde_json::Value> {
     let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(file));
     let mut pubspec = None;
@@ -298,6 +431,92 @@ pub fn parse_pubspec_from_tar_gz(file: &File) -> Option<serde_json::Value> {
     pubspec
 }
 
+pub fn parse_example_from_tar_gz(file_path: &str) -> Option<String> {
+    parse_file_from_tar_gz(file_path, |path| {
+        println!("parse_example_from_tar_gz: {:?}", path.to_str());
+        path.ends_with("example/lib/main.dart")
+            || path.ends_with("example/main.dart")
+            || path.ends_with("lib/example.dart")
+            || path.ends_with("example.dart")
+            || Regex::new(r"(.*)?example.*")
+                .unwrap()
+                .is_match(path.to_str().unwrap_or(""))
+    })
+}
+
+pub fn parse_license_from_tar_gz(file_path: &str) -> Option<String> {
+    parse_file_from_tar_gz(file_path, |path| {
+        path.ends_with("LICENSE") || path.ends_with("LICENSE.md") || path.ends_with("LICENSE.rst")
+    })
+}
+
+pub fn parse_readme_from_tar_gz(file_path: &str) -> Option<String> {
+    parse_file_from_tar_gz(file_path, |path| {
+        path.ends_with("README.md") || path.ends_with("README.rst")
+    })
+}
+
+pub fn parse_changelog_from_tar_gz(file_path: &str) -> Option<String> {
+    parse_file_from_tar_gz(file_path, |path| {
+        path.ends_with("CHANGELOG.md") || path.ends_with("CHANGELOG.rst")
+    })
+}
+
+pub fn parse_file_from_tar_gz(
+    file_path: &str,
+    filter: fn(path: &Cow<Path>) -> bool,
+) -> Option<String> {
+    let Ok(file) = File::open(file_path) else {
+        println!(
+            "parse_file_from_tar_gz: failed to open file: {:?}",
+            file_path
+        );
+        return None;
+    };
+
+    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(file));
+
+    let entries = match archive.entries() {
+        Ok(entries) => entries,
+        Err(e) => {
+            println!("parse_file_from_tar_gz: failed to get entries: {:?}", e);
+            return None;
+        }
+    };
+
+    for entry_result in entries {
+        let mut entry = match entry_result {
+            Ok(entry) => entry,
+            Err(e) => {
+                println!("parse_pubspec_from_tar_gz: failed to get entry: {:?}", e);
+                continue;
+            }
+        };
+
+        let entry_path = match entry.path() {
+            Ok(path) => path,
+            Err(e) => {
+                println!(
+                    "parse_pubspec_from_tar_gz: failed to get entry path: {:?}",
+                    e
+                );
+                continue;
+            }
+        };
+
+        if filter(&entry_path) {
+            let mut content = String::new();
+            if let Err(e) = entry.read_to_string(&mut content) {
+                println!("parse_pubspec_from_tar_gz: failed to read entry: {:?}", e);
+                return None;
+            }
+
+            return Some(content);
+        }
+    }
+    None
+}
+
 fn remove_package_and_sha256_file(package_file_path: &str, sha256_file_path: &str) {
     if !package_file_path.is_empty() {
         if let Err(_) = remove_file(package_file_path) {
@@ -313,7 +532,7 @@ fn remove_package_and_sha256_file(package_file_path: &str, sha256_file_path: &st
 }
 
 fn update_database(package_version: &str, pubspec: &serde_json::Value) {
-    let connection = &mut sqlite_database::establish_connection();
+    let connection = &mut server_database::establish_connection();
 
     // .unwrap();
     if let Err(e) = package_version_dao::upsert(
@@ -425,7 +644,7 @@ fn get_package_version_archive_download_url(package_name: &str, version: &str) -
 fn get_package_dir_path<'a>(package_name: &'a str, package_version: &'a str) -> Option<String> {
     let root_dir = config::get_package_root_dir();
 
-    println!("get_package_dir_path: root_dir: {:?}", root_dir);
+    // println!("get_package_dir_path: root_dir: {:?}", root_dir);
 
     let path = Path::new(&root_dir)
         .join(&package_name)
@@ -442,4 +661,30 @@ fn get_package_file_name<'a>(package_name: &'a str, package_version: &'a str) ->
 #[inline]
 fn get_sha256_file_name<'a>(package_name: &'a str, package_version: &'a str) -> String {
     format!("{}-{}.sha256", package_name, package_version)
+}
+
+fn get_package_file_path_from_package_name(package_name: &str) -> Option<String> {
+    let connection = &mut server_database::establish_connection();
+    connection
+        .transaction(|connection| {
+            let package_entity = match package_dao::find_by_name(connection, package_name) {
+                Ok(entity) => entity,
+                Err(e) => {
+                    println!("get_package: failed to find package by name: {:?}", e);
+                    return Err(e);
+                }
+            };
+
+            let package_file_path =
+                get_package_file_path(package_name, &package_entity.latest_version)
+                    .unwrap_or_else(|| String::new());
+            Ok(package_file_path)
+        })
+        .map_or(None, |package_file_path| {
+            if package_file_path.is_empty() {
+                println!("get_package: failed to get package file path");
+                return None;
+            }
+            Some(package_file_path)
+        })
 }
