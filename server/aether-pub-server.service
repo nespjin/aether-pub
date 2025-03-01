@@ -1,0 +1,14 @@
+[Unit]
+Description=Aether Pub Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/www/aether-pub-server
+ExecStart=/www/aether-pub-server/aether-pub-server
+User=aether-pub-server
+Group=aether-pub-server
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

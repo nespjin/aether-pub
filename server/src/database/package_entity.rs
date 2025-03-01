@@ -48,21 +48,6 @@ impl PackageEntity {
         }
     }
 
-    pub fn to_external_model(
-        entity: PackageEntity,
-        latest: PackageVersion,
-        versions: Vec<PackageVersion>,
-    ) -> Package {
-        Package {
-            name: entity.name.clone(),
-            is_discontinued: entity.is_discontinued,
-            replaced_by: entity.replaced_by.clone(),
-            advisories_updated: entity.advisories_updated.clone(),
-            latest,
-            versions,
-        }
-    }
-
     pub fn copy(origin: &PackageEntity) -> Self {
         Self {
             name: origin.name.clone(),

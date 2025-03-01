@@ -5,6 +5,7 @@ use crate::database::{package_dao, package_version_dao, server_database};
 use crate::models::package::Package;
 use crate::models::package_version::PackageVersion;
 use diesel::Connection;
+use log::error;
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
@@ -28,7 +29,7 @@ pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Pack
     let package_entity = match package_dao::find_by_name(connection, package_name) {
         Ok(entity) => entity,
         Err(e) => {
-            println!("get_package: failed to find package by name: {:?}", e);
+            error!("get_package: failed to find package by name: {:?}", e);
             return None;
         }
     };
@@ -38,7 +39,7 @@ pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Pack
     {
         Ok(entity) => entity,
         Err(e) => {
-            println!(
+            error!(
                 "get_package: failed to find package version by version: {:?}",
                 e
             );
@@ -49,7 +50,7 @@ pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Pack
     let last_version = match get_package_version_from_entity(&last_version_entity) {
         Some(version) => version,
         None => {
-            println!("get_package: failed to get package version from entity");
+            error!("get_package: failed to get package version from entity");
             return None;
         }
     };
@@ -59,7 +60,7 @@ pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Pack
             match package_version_dao::find_all_by_package_name(connection, package_name) {
                 Ok(entities) => entities,
                 Err(e) => {
-                    println!(
+                    error!(
                         "get_package: failed to find all package versions by package name: {:?}",
                         e
                     );
@@ -74,7 +75,7 @@ pub fn query_package(package_name: &str, is_query_versions: bool) -> Option<Pack
         {
             Some(versions) => Some(versions),
             None => {
-                println!("get_package: failed to get package versions from entities");
+                error!("get_package: failed to get package versions from entities");
                 None
             }
         }
@@ -105,7 +106,7 @@ pub fn query_packages(
                 match package_dao::query_packages(connection, keyword, page_size, page) {
                     Ok(entities) => entities,
                     Err(e) => {
-                        println!("query_packages: failed to query packages: {:?}", e);
+                        error!("query_packages: failed to query packages: {:?}", e);
                         return Err(e);
                     }
                 };
@@ -119,7 +120,7 @@ pub fn query_packages(
                     let result =
                         package_version_dao::find_all_by_package_name(connection, package_name);
                     let package_version_entities = result.unwrap_or_else(|e| {
-                        println!(
+                        error!(
                             "get_package: failed to find all package versions by package name: {:?}",
                             e
                         );
@@ -130,7 +131,7 @@ pub fn query_packages(
                         .map(|entity| get_package_version_from_entity(entity))
                         .collect::<Option<Vec<PackageVersion>>>()
                         .unwrap_or_else(|| {
-                            println!("get_package: failed to get package versions from entities");
+                            error!("get_package: failed to get package versions from entities");
                             vec![]
                         });
 
@@ -140,7 +141,7 @@ pub fn query_packages(
                     {
                         Some(version) => version,
                         None => {
-                            println!("get_package: failed to find last version");
+                            error!("get_package: failed to find last version");
                             continue;
                         }
                     };
@@ -154,7 +155,7 @@ pub fn query_packages(
                     ) {
                         Ok(entity) => get_package_version_from_entity(&entity),
                         Err(e) => {
-                            println!(
+                            error!(
                                 "get_package: failed to find package version by version: {:?}",
                                 e
                             );
@@ -165,7 +166,7 @@ pub fn query_packages(
                     let last_version = match last_version_opt {
                         Some(version) => version,
                         None => {
-                            println!("get_package: failed to get package version from entity");
+                            error!("get_package: failed to get package version from entity");
                             continue;
                         }
                     };
@@ -183,7 +184,7 @@ pub fn get_package_details() {}
 
 pub fn get_package_readme(package_name: &str) -> Option<String> {
     let Some(package_file_path) = get_package_file_path_from_package_name(package_name) else {
-        println!("get_package_readme: failed to get package file path from package name");
+        error!("get_package_readme: failed to get package file path from package name");
         return None;
     };
 
@@ -192,7 +193,7 @@ pub fn get_package_readme(package_name: &str) -> Option<String> {
 
 pub fn get_package_changelog(package_name: &str) -> Option<String> {
     let Some(package_file_path) = get_package_file_path_from_package_name(package_name) else {
-        println!("get_package_changelog: failed to get package file path from package name");
+        error!("get_package_changelog: failed to get package file path from package name");
         return None;
     };
 
@@ -201,7 +202,7 @@ pub fn get_package_changelog(package_name: &str) -> Option<String> {
 
 pub fn get_package_example(package_name: &str) -> Option<String> {
     let Some(package_file_path) = get_package_file_path_from_package_name(package_name) else {
-        println!("get_package_example: failed to get package file path from package name");
+        error!("get_package_example: failed to get package file path from package name");
         return None;
     };
 
@@ -218,7 +219,7 @@ pub fn query_package_versions(package_name: &str) -> Vec<PackageVersion> {
                 match package_version_dao::find_all_by_package_name(connection, package_name) {
                     Ok(entities) => entities,
                     Err(e) => {
-                        println!(
+                        error!(
                             "get_package_versions: failed to query package versions: {:?}",
                             e
                         );
@@ -231,7 +232,7 @@ pub fn query_package_versions(package_name: &str) -> Vec<PackageVersion> {
                 .map(|entity| get_package_version_from_entity(entity))
                 .collect::<Option<Vec<PackageVersion>>>()
                 .unwrap_or_else(|| {
-                    println!("get_package_versions: failed to get package versions from entities");
+                    error!("get_package_versions: failed to get package versions from entities");
                     vec![]
                 });
             Ok(versions)
@@ -243,43 +244,43 @@ pub fn save_new_package_version_with_tar_file(
     package_tmp_file_path: &String,
 ) -> Option<(String, String)> {
     let Ok(mut package_tmp_file) = File::open(package_tmp_file_path) else {
-        println!("save_package_and_sha256_file: failed to open package tmp file");
+        error!("save_package_and_sha256_file: failed to open package tmp file");
         return None;
     };
 
     let Some(pubspec) = parse_pubspec_from_tar_gz(&package_tmp_file) else {
-        println!("save_package_and_sha256_file: failed to parse pubspec.yaml");
+        error!("save_package_and_sha256_file: failed to parse pubspec.yaml");
         return None;
     };
 
     // Reset file pointer to the beginning for subsequent reads
     if let Err(_) = package_tmp_file.seek(std::io::SeekFrom::Start(0)) {
-        println!("save_package_and_sha256_file: failed to reset file pointer");
+        error!("save_package_and_sha256_file: failed to reset file pointer");
         return None;
     }
 
     let (Some(package_name), Some(package_version)) =
         (pubspec["name"].as_str(), pubspec["version"].as_str())
     else {
-        println!("save_package_and_sha256_file: failed to extract package name and version");
+        error!("save_package_and_sha256_file: failed to extract package name and version");
         return None;
     };
 
     let Some(package_file_path) = get_package_file_path(package_name, package_version) else {
-        println!("save_package_and_sha256_file: failed to get package file path");
+        error!("save_package_and_sha256_file: failed to get package file path");
         return None;
     };
 
     let Some(sha256_file_path) = get_sha256_file_path(package_name, package_version) else {
-        println!("save_package_and_sha256_file: failed to get sha256 file path");
+        error!("save_package_and_sha256_file: failed to get sha256 file path");
         return None;
     };
 
-    // println!(
+    // error!(
     //     "save_package_and_sha256_file: package_file_path: {:?}",
     //     &package_file_path
     // );
-    // println!(
+    // error!(
     //     "save_package_and_sha256_file: sha256_file_path: {:?}",
     //     &sha256_file_path
     // );
@@ -288,7 +289,7 @@ pub fn save_new_package_version_with_tar_file(
     Path::new(&package_file_path).parent().map(|parent| {
         if !parent.exists() {
             if let Err(_) = create_dir_all(parent) {
-                println!("save_package_and_sha256_file: failed to create package directory");
+                error!("save_package_and_sha256_file: failed to create package directory");
             }
         }
     });
@@ -296,20 +297,20 @@ pub fn save_new_package_version_with_tar_file(
     Path::new(&sha256_file_path).parent().map(|parent| {
         if !parent.exists() {
             if let Err(_) = create_dir_all(parent) {
-                println!("save_package_and_sha256_file: failed to create sha256 directory");
+                error!("save_package_and_sha256_file: failed to create sha256 directory");
             }
         }
     });
 
     // Create the package file and SHA256 file
     let Ok(mut package_file) = File::create(&package_file_path) else {
-        println!("save_package_and_sha256_file: failed to create package file");
+        error!("save_package_and_sha256_file: failed to create package file");
         return None;
     };
 
     let Ok(mut sha256_file) = File::create(&sha256_file_path) else {
         remove_package_and_sha256_file(&package_file_path, "");
-        println!("save_package_and_sha256_file: failed to create sha256 file");
+        error!("save_package_and_sha256_file: failed to create sha256 file");
         return None;
     };
 
@@ -322,7 +323,7 @@ pub fn save_new_package_version_with_tar_file(
     // Read the temporary package file, calculate its SHA256 hash, and write to the package file
     loop {
         if let Ok(bytes_read) = package_tmp_file_reader.read(&mut buffer) {
-            println!("save_package_and_sha256_file: bytes_read: {:?}", bytes_read);
+            error!("save_package_and_sha256_file: bytes_read: {:?}", bytes_read);
             if bytes_read == 0 {
                 break;
             }
@@ -331,19 +332,19 @@ pub fn save_new_package_version_with_tar_file(
 
             if let Err(_) = package_file.write(&buffer[..bytes_read]) {
                 remove_package_and_sha256_file(&package_file_path, &sha256_file_path);
-                println!("save_package_and_sha256_file: failed to write package file");
+                error!("save_package_and_sha256_file: failed to write package file");
                 return None;
             }
         } else {
             remove_package_and_sha256_file(&package_file_path, &sha256_file_path);
-            println!("save_package_and_sha256_file: failed to read tmp package file");
+            error!("save_package_and_sha256_file: failed to read tmp package file");
             return None;
         }
     }
 
     if package_file_size == 0 {
         remove_package_and_sha256_file(&package_file_path, &sha256_file_path);
-        println!("save_package_and_sha256_file: package file size is 0");
+        error!("save_package_and_sha256_file: package file size is 0");
         return None;
     }
 
@@ -357,18 +358,18 @@ pub fn save_new_package_version_with_tar_file(
     // let hash_code = sha256.finalize();
     // let hash_hex = format!("{:x}", hash_code);
 
-    println!("save_package_and_sha256_file: file hash: {:?}", &hash_hex);
+    error!("save_package_and_sha256_file: file hash: {:?}", &hash_hex);
 
     // Write the SHA256 hash to the hash file and update the database
     if let Ok(sha256_file_size) = sha256_file.write(&hash_hex.as_bytes()) {
-        println!(
+        error!(
             "save_package_and_sha256_file: package_file_size: {:?}, sha256_file_size: {}",
             package_file_size, sha256_file_size
         );
         update_database(package_version, &pubspec);
         Some((package_file_path, sha256_file_path))
     } else {
-        println!("save_package_and_sha256_file: failed to write file");
+        error!("save_package_and_sha256_file: failed to write file");
         None
     }
 }
@@ -380,7 +381,7 @@ pub fn parse_pubspec_from_tar_gz(file: &File) -> Option<serde_json::Value> {
     let entries = match archive.entries() {
         Ok(entries) => entries,
         Err(e) => {
-            println!("parse_pubspec_from_tar_gz: failed to get entries: {:?}", e);
+            error!("parse_pubspec_from_tar_gz: failed to get entries: {:?}", e);
             return None;
         }
     };
@@ -389,7 +390,7 @@ pub fn parse_pubspec_from_tar_gz(file: &File) -> Option<serde_json::Value> {
         let mut entry = match entry_result {
             Ok(entry) => entry,
             Err(e) => {
-                println!("parse_pubspec_from_tar_gz: failed to get entry: {:?}", e);
+                error!("parse_pubspec_from_tar_gz: failed to get entry: {:?}", e);
                 continue;
             }
         };
@@ -397,7 +398,7 @@ pub fn parse_pubspec_from_tar_gz(file: &File) -> Option<serde_json::Value> {
         let entry_path = match entry.path() {
             Ok(path) => path,
             Err(e) => {
-                println!(
+                error!(
                     "parse_pubspec_from_tar_gz: failed to get entry path: {:?}",
                     e
                 );
@@ -408,17 +409,17 @@ pub fn parse_pubspec_from_tar_gz(file: &File) -> Option<serde_json::Value> {
         if entry_path.ends_with("pubspec.yaml") {
             let mut content = String::new();
             if let Err(e) = entry.read_to_string(&mut content) {
-                println!("parse_pubspec_from_tar_gz: failed to read entry: {:?}", e);
+                error!("parse_pubspec_from_tar_gz: failed to read entry: {:?}", e);
                 return None;
             }
 
-            // println!("pubspec.yaml content: {}", content);
+            // error!("pubspec.yaml content: {}", content);
 
             // Parse pubspec.yaml to JSON
             pubspec = match serde_yaml::from_str::<serde_json::Value>(&content) {
                 Ok(json) => Some(json),
                 Err(e) => {
-                    println!(
+                    error!(
                         "parse_pubspec_from_tar_gz: failed to parse pubspec.yaml: {:?}",
                         e
                     );
@@ -433,7 +434,7 @@ pub fn parse_pubspec_from_tar_gz(file: &File) -> Option<serde_json::Value> {
 
 pub fn parse_example_from_tar_gz(file_path: &str) -> Option<String> {
     parse_file_from_tar_gz(file_path, |path| {
-        println!("parse_example_from_tar_gz: {:?}", path.to_str());
+        // error!("parse_example_from_tar_gz: {:?}", path.to_str());
         path.ends_with("example/lib/main.dart")
             || path.ends_with("example/main.dart")
             || path.ends_with("lib/example.dart")
@@ -467,7 +468,7 @@ pub fn parse_file_from_tar_gz(
     filter: fn(path: &Cow<Path>) -> bool,
 ) -> Option<String> {
     let Ok(file) = File::open(file_path) else {
-        println!(
+        error!(
             "parse_file_from_tar_gz: failed to open file: {:?}",
             file_path
         );
@@ -479,7 +480,7 @@ pub fn parse_file_from_tar_gz(
     let entries = match archive.entries() {
         Ok(entries) => entries,
         Err(e) => {
-            println!("parse_file_from_tar_gz: failed to get entries: {:?}", e);
+            error!("parse_file_from_tar_gz: failed to get entries: {:?}", e);
             return None;
         }
     };
@@ -488,7 +489,7 @@ pub fn parse_file_from_tar_gz(
         let mut entry = match entry_result {
             Ok(entry) => entry,
             Err(e) => {
-                println!("parse_pubspec_from_tar_gz: failed to get entry: {:?}", e);
+                error!("parse_pubspec_from_tar_gz: failed to get entry: {:?}", e);
                 continue;
             }
         };
@@ -496,7 +497,7 @@ pub fn parse_file_from_tar_gz(
         let entry_path = match entry.path() {
             Ok(path) => path,
             Err(e) => {
-                println!(
+                error!(
                     "parse_pubspec_from_tar_gz: failed to get entry path: {:?}",
                     e
                 );
@@ -507,7 +508,7 @@ pub fn parse_file_from_tar_gz(
         if filter(&entry_path) {
             let mut content = String::new();
             if let Err(e) = entry.read_to_string(&mut content) {
-                println!("parse_pubspec_from_tar_gz: failed to read entry: {:?}", e);
+                error!("parse_pubspec_from_tar_gz: failed to read entry: {:?}", e);
                 return None;
             }
 
@@ -520,13 +521,13 @@ pub fn parse_file_from_tar_gz(
 fn remove_package_and_sha256_file(package_file_path: &str, sha256_file_path: &str) {
     if !package_file_path.is_empty() {
         if let Err(_) = remove_file(package_file_path) {
-            println!("remove_package_and_sha256_file: failed to remove package file");
+            error!("remove_package_and_sha256_file: failed to remove package file");
         }
     }
 
     if !sha256_file_path.is_empty() {
         if let Err(_) = remove_file(sha256_file_path) {
-            println!("remove_package_and_sha256_file: failed to remove sha256 file");
+            error!("remove_package_and_sha256_file: failed to remove sha256 file");
         }
     }
 }
@@ -539,7 +540,7 @@ fn update_database(package_version: &str, pubspec: &serde_json::Value) {
         connection,
         &PackageVersionEntity::new_with_pubspec(&pubspec, false),
     ) {
-        println!("update_database: failed to upsert package version: {:?}", e);
+        error!("update_database: failed to upsert package version: {:?}", e);
         return;
     }
 
@@ -547,7 +548,7 @@ fn update_database(package_version: &str, pubspec: &serde_json::Value) {
         connection,
         &PackageEntity::new_with_pubspec(&pubspec, package_version),
     ) {
-        println!("update_database: failed to upsert package: {:?}", e);
+        error!("update_database: failed to upsert package: {:?}", e);
     }
 }
 
@@ -567,7 +568,7 @@ fn get_file_path(
     get_file_name: fn(&str, &str) -> String,
 ) -> Option<String> {
     let Some(dir_path) = get_package_dir_path(package_name, package_version) else {
-        println!("get_file_path: failed to get package dir path");
+        error!("get_file_path: failed to get package dir path");
         return None;
     };
 
@@ -585,7 +586,7 @@ fn get_package_version_from_entity(entity: &PackageVersionEntity) -> Option<Pack
         match get_package_version_archive_download_url(package_name, package_version) {
             Some(path) => path,
             None => {
-                println!("get_package: failed to get package file path");
+                error!("get_package: failed to get package file path");
                 return None;
             }
         };
@@ -594,7 +595,7 @@ fn get_package_version_from_entity(entity: &PackageVersionEntity) -> Option<Pack
         match get_package_version_archive_sha256(package_name, package_version) {
             Some(hash) => hash,
             None => {
-                println!("get_package: failed to get package file path");
+                error!("get_package: failed to get package file path");
                 return None;
             }
         };
@@ -606,7 +607,7 @@ fn get_package_version_archive_sha256(package_name: &str, package_version: &str)
     let sha256_file_path = match get_sha256_file_path(package_name, package_version) {
         Some(path) => path,
         None => {
-            println!("get_package: failed to get sha256 file path");
+            error!("get_package: failed to get sha256 file path");
             return None;
         }
     };
@@ -615,13 +616,13 @@ fn get_package_version_archive_sha256(package_name: &str, package_version: &str)
         Ok(mut file) => {
             let mut content = String::new();
             if let Err(e) = file.read_to_string(&mut content) {
-                println!("get_package: failed to read sha256 file: {:?}", e);
+                error!("get_package: failed to read sha256 file: {:?}", e);
                 return None;
             }
             Some(content)
         }
         Err(e) => {
-            println!("get_package: failed to open sha256 file: {:?}", e);
+            error!("get_package: failed to open sha256 file: {:?}", e);
             None
         }
     }
@@ -635,7 +636,7 @@ fn get_package_version_archive_download_url(package_name: &str, version: &str) -
             &path
         )),
         None => {
-            println!("get_package_archive_download_url: failed to get package file path");
+            error!("get_package_archive_download_url: failed to get package file path");
             None
         }
     }
@@ -644,7 +645,7 @@ fn get_package_version_archive_download_url(package_name: &str, version: &str) -
 fn get_package_dir_path<'a>(package_name: &'a str, package_version: &'a str) -> Option<String> {
     let root_dir = config::get_package_root_dir();
 
-    // println!("get_package_dir_path: root_dir: {:?}", root_dir);
+    // error!("get_package_dir_path: root_dir: {:?}", root_dir);
 
     let path = Path::new(&root_dir)
         .join(&package_name)
@@ -670,7 +671,7 @@ fn get_package_file_path_from_package_name(package_name: &str) -> Option<String>
             let package_entity = match package_dao::find_by_name(connection, package_name) {
                 Ok(entity) => entity,
                 Err(e) => {
-                    println!("get_package: failed to find package by name: {:?}", e);
+                    error!("get_package: failed to find package by name: {:?}", e);
                     return Err(e);
                 }
             };
@@ -682,7 +683,7 @@ fn get_package_file_path_from_package_name(package_name: &str) -> Option<String>
         })
         .map_or(None, |package_file_path| {
             if package_file_path.is_empty() {
-                println!("get_package: failed to get package file path");
+                error!("get_package: failed to get package file path");
                 return None;
             }
             Some(package_file_path)
