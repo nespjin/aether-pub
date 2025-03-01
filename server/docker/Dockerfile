@@ -4,7 +4,7 @@
 FROM docker.io/rust:1.85.0 AS build
 
 ## cargo package name: customize here or provide via --build-arg
-ARG pkg=rocket-app
+ARG pkg=aether-pub-server
 
 WORKDIR /build
 
