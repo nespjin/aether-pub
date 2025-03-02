@@ -31,9 +31,7 @@ export function SearchView({
         className="focus:outline-none w-full pl-2"
         type="text"
         value={text}
-        onChange={(e) => {
-          onTextChanged && onTextChanged(e.target.value);
-        }}
+        onChange={(e) => onTextChanged && onTextChanged(e.target.value)}
         placeholder="Search packages"
       />
     </div>

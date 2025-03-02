@@ -35,7 +35,11 @@ export function PackageList(): React.ReactNode {
         return prevValue + config.keyword;
       });
     } else if (!isSelected && keywords.includes(config.keyword)) {
-      setKeywords((prev) => prev.replace(config.keyword, ""));
+      setKeywords((prev) => {
+        return prev
+          .replace(" " + config.keyword, "")
+          .replace(config.keyword, "");
+      });
     }
   };
 
