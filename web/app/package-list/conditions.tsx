@@ -115,7 +115,7 @@ function ConditionGroup({
           {conditionConfigs.map((config) => {
             return (
               <FormControlLabel
-                className="hover:bg-gray-50 hover:rounded-sm"
+                className="hover:bg-gray-50 hover:rounded-sm p-0"
                 control={
                   <Checkbox
                     onChange={(_, s) => {

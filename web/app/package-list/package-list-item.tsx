@@ -1,4 +1,4 @@
-import { ContentCopy, CopyAll } from "@mui/icons-material";
+import { ContentCopy } from "@mui/icons-material";
 import { PackageBadge } from "~/components/PackageBadge";
 import { TagGroup } from "~/components/TagGroup";
 import { TopicView } from "~/components/TopicView";
